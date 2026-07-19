@@ -143,7 +143,7 @@ async def list_affiliates(
             "withdrawable_balance": float(withdrawable),
             "pending_earnings": float(pending_earnings),
             "advance_paid": float(advance_paid),
-            "status": u.status.value
+            "status": u.status.value if hasattr(u.status, 'value') else u.status
         })
 
     # Perform in-memory sorting
@@ -205,7 +205,7 @@ async def get_affiliate_details(
         "withdrawable_balance": float(withdrawable),
         "pending_earnings": float(pending_earnings),
         "advance_paid": float(advance_paid),
-        "status": u.status.value
+        "status": u.status.value if hasattr(u.status, 'value') else u.status
     }
 
 @router.get("/affiliates/{id}/ledger")

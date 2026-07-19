@@ -4,6 +4,10 @@ A production-grade, double-entry financial ledger backend and Stripe-inspired da
 
 This repository implements the low-level design and business logic requirements to manage user payout commissions, bulk administrative reconciliations, 24-hour withdrawal constraints, and failed transaction balance recoveries.
 
+> [!IMPORTANT]
+> * **Earning is 10% of sales generated**
+> * **Advance payout is 10% of the earnings**
+
 ---
 
 ## 🚀 System Architecture

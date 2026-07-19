@@ -12,6 +12,7 @@ import { api, Sale, Withdrawal, LedgerTransaction, AuditLog, DashboardStats, Use
 
 export default function Dashboard() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [role, setRole] = useState<'ADMIN' | 'USER' | 'VIEWER'>('USER');
   const [activeTab, setActiveTab] = useState<'overview' | 'sales' | 'withdrawals' | 'ledger' | 'audits' | 'affiliates'>('overview');
   
@@ -62,6 +63,7 @@ export default function Dashboard() {
 
   // Fetch initial configs
   useEffect(() => {
+    setMounted(true);
     const token = localStorage.getItem('payout_access_token');
     const storedRole = localStorage.getItem('user_role') as any;
     if (!token) {
@@ -79,12 +81,41 @@ export default function Dashboard() {
     try {
       // Current profile
       const userProfile = await api.request<User>("/users/me").catch(() => null);
+      let currentRole = role;
       if (userProfile) {
         setProfile(userProfile);
         setRole(userProfile.role);
+        currentRole = userProfile.role;
       }
 
-      const targetUserId = selectedAffiliate ? selectedAffiliate.id : undefined;
+      const isAdmin = currentRole === 'ADMIN';
+      let targetUserId = selectedAffiliate ? selectedAffiliate.id : undefined;
+      let initialSelectedAff = selectedAffiliate;
+
+      if (isAdmin) {
+        const [auditData, usersData, affiliatesData] = await Promise.all([
+          api.getAuditLogs().catch(() => ({ logs: [], total: 0 })),
+          api.getUsers().catch(() => []),
+          api.getAffiliates(searchQuery, sortBy, sortOrder).catch(() => []),
+        ]);
+        setAudits(auditData.logs);
+        setUsers(usersData);
+        setAffiliates(affiliatesData);
+
+        const affiliateUsers = usersData.filter((u: any) => u.role === 'USER');
+        
+        // Default to first affiliate on startup if none selected
+        if (affiliateUsers.length > 0 && !selectedAffiliate) {
+          const firstAff = affiliatesData.find(a => a.id === affiliateUsers[0].id) || affiliateUsers[0];
+          setSelectedAffiliate(firstAff);
+          initialSelectedAff = firstAff;
+          targetUserId = firstAff.id;
+        }
+
+        if (affiliateUsers.length > 0 && !ingestUserId) {
+          setIngestUserId(initialSelectedAff ? initialSelectedAff.id : affiliateUsers[0].id);
+        }
+      }
 
       const [statsData, salesData, withdrawalsData, ledgerData] = await Promise.all([
         api.getDashboardStats(targetUserId).catch(() => null),
@@ -97,21 +128,6 @@ export default function Dashboard() {
       setSales(salesData);
       setWithdrawals(withdrawalsData);
       setLedger(ledgerData);
-
-      if (storedRoleIsAdmin()) {
-        const [auditData, usersData, affiliatesData] = await Promise.all([
-          api.getAuditLogs().catch(() => ({ logs: [], total: 0 })),
-          api.getUsers().catch(() => []),
-          api.getAffiliates(searchQuery, sortBy, sortOrder).catch(() => []),
-        ]);
-        setAudits(auditData.logs);
-        setUsers(usersData);
-        setAffiliates(affiliatesData);
-        const affiliateUsers = usersData.filter((u: any) => u.role === 'USER');
-        if (affiliateUsers.length > 0 && !ingestUserId) {
-          setIngestUserId(affiliateUsers[0].id);
-        }
-      }
     } catch (err: any) {
       showToast(err.message || "Failed to load data", "error");
     } finally {
@@ -131,8 +147,42 @@ export default function Dashboard() {
     }
   }, [searchQuery, sortBy, sortOrder, activeTab]);
 
+  const selectAffiliateAndLoad = async (affiliate: any) => {
+    setSelectedAffiliate(affiliate);
+    if (affiliate) {
+      setIngestUserId(affiliate.id);
+    }
+    setLoading(true);
+    try {
+      const targetUserId = affiliate ? affiliate.id : undefined;
+      const [statsData, salesData, withdrawalsData, ledgerData] = await Promise.all([
+        api.getDashboardStats(targetUserId).catch(() => null),
+        api.getSales(undefined, targetUserId).catch(() => []),
+        api.getWithdrawals(targetUserId).catch(() => []),
+        api.getLedger(targetUserId).catch(() => []),
+      ]);
+
+      if (statsData) setStats(statsData);
+      setSales(salesData);
+      setWithdrawals(withdrawalsData);
+      setLedger(ledgerData);
+      if (affiliate) {
+        showToast(`Now viewing ${affiliate.name}'s space`, "info");
+      } else {
+        showToast("Now viewing all affiliates space", "info");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to load affiliate details", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSelectAffiliate = async (affiliate: any) => {
     setSelectedAffiliate(affiliate);
+    if (affiliate) {
+      setIngestUserId(affiliate.id);
+    }
     setLoading(true);
     try {
       const [statsData, salesData, withdrawalsData, ledgerData] = await Promise.all([
@@ -179,6 +229,7 @@ export default function Dashboard() {
   };
 
   const storedRoleIsAdmin = () => {
+    if (!mounted) return false;
     if (typeof window !== "undefined") {
       return localStorage.getItem('user_role') === 'ADMIN';
     }
@@ -227,7 +278,8 @@ export default function Dashboard() {
   // Ingest Sale
   const handleIngestSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ingestUserId || !ingestAmount) {
+    const finalUserId = selectedAffiliate ? selectedAffiliate.id : ingestUserId;
+    if (!finalUserId || !ingestAmount) {
       showToast("Please complete the ingestion fields", "error");
       return;
     }
@@ -236,7 +288,7 @@ export default function Dashboard() {
     try {
       const externalId = `sale_ref_${Date.now().toString().slice(-6)}`;
       await api.createSale({
-        user_id: ingestUserId,
+        user_id: finalUserId,
         brand_name: ingestBrand,
         external_id: externalId,
         amount: parseFloat(ingestAmount)
@@ -344,7 +396,6 @@ export default function Dashboard() {
               { id: 'sales', label: 'Sales Management', icon: Layers },
               { id: 'withdrawals', label: 'Withdraw Payouts', icon: ArrowUpRight },
               { id: 'ledger', label: 'Double-Entry Ledger', icon: FileText },
-              ...(storedRoleIsAdmin() ? [{ id: 'audits', label: 'System Audit Logs', icon: Shield }] : []),
             ].map(tab => {
               const Icon = tab.icon;
               return (
@@ -384,6 +435,32 @@ export default function Dashboard() {
             <span>Dashboard</span>
             <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
             <span className="text-white font-bold">{activeTab}</span>
+            {storedRoleIsAdmin() && ['overview', 'sales', 'withdrawals', 'ledger'].includes(activeTab) && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                <span className="text-zinc-500 text-xs font-semibold normal-case">Affiliate:</span>
+                <select
+                  value={selectedAffiliate ? selectedAffiliate.id : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      selectAffiliateAndLoad(null);
+                    } else {
+                      const aff = affiliates.find(a => a.id === val) || users.find(u => u.id === val);
+                      if (aff) {
+                        selectAffiliateAndLoad(aff);
+                      }
+                    }
+                  }}
+                  className="bg-zinc-900 border border-[#1f1f23] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-purple-500 cursor-pointer font-sans normal-case"
+                >
+                  <option value="">All Affiliates</option>
+                  {users.filter(u => u.role === 'USER').map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                  ))}
+                </select>
+              </>
+            )}
           </h2>
 
           {/* Quick Admin Actions Header Bar */}
@@ -412,7 +489,7 @@ export default function Dashboard() {
 
         {/* Content Section */}
         <div className="p-8 space-y-8 flex-1 max-w-6xl w-full mx-auto">
-          {storedRoleIsAdmin() && selectedAffiliate && (
+          {storedRoleIsAdmin() && selectedAffiliate && !['affiliates', 'audits'].includes(activeTab) && (
             <div className="bg-purple-950/20 border border-purple-900/40 p-4 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-purple-600/20 flex items-center justify-center border border-purple-500/25">
@@ -702,52 +779,45 @@ export default function Dashboard() {
                     {storedRoleIsAdmin() && (
                       <div className="bg-[#121214] border border-[#1f1f23] p-5 rounded-xl space-y-4">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400">Mock Sale Ingestion</h4>
-                        <form onSubmit={handleIngestSale} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-zinc-500 font-semibold uppercase">Affiliate User</label>
-                            <select
-                              className="w-full bg-zinc-900 border border-[#1f1f23] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
-                              value={ingestUserId}
-                              onChange={(e) => setIngestUserId(e.target.value)}
+                        {selectedAffiliate ? (
+                          <form onSubmit={handleIngestSale} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-zinc-500 font-semibold uppercase">Brand Partner</label>
+                              <input
+                                type="text"
+                                required
+                                className="w-full bg-zinc-900 border border-[#1f1f23] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                                placeholder="e.g. Nike, Puma, Reebok"
+                                value={ingestBrand}
+                                onChange={(e) => setIngestBrand(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-zinc-500 font-semibold uppercase">Sale Amount (₹)</label>
+                              <input
+                                type="number"
+                                required
+                                className="w-full bg-zinc-900 border border-[#1f1f23] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                                placeholder="e.g. 400"
+                                value={ingestAmount}
+                                onChange={(e) => setIngestAmount(e.target.value)}
+                              />
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={ingestLoading}
+                              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900 text-xs font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer font-sans"
                             >
-                              {users.filter(u => u.role === 'USER').map(u => (
-                                <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                              ))}
-                            </select>
-                          </div>
-                          
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-zinc-500 font-semibold uppercase">Brand Partner</label>
-                            <input
-                              type="text"
-                              required
-                              className="w-full bg-zinc-900 border border-[#1f1f23] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
-                              placeholder="e.g. Nike, Puma, Reebok"
-                              value={ingestBrand}
-                              onChange={(e) => setIngestBrand(e.target.value)}
-                            />
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] text-zinc-500 font-semibold uppercase">Sale Amount (₹)</label>
-                            <input
-                              type="number"
-                              required
-                              className="w-full bg-zinc-900 border border-[#1f1f23] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
-                              placeholder="e.g. 400"
-                              value={ingestAmount}
-                              onChange={(e) => setIngestAmount(e.target.value)}
-                            />
-                          </div>
-
-                          <button
-                            type="submit"
-                            disabled={ingestLoading}
-                            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900 text-xs font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                          >
-                            Ingest Sale
-                          </button>
-                        </form>
+                              Ingest Sale for {selectedAffiliate.name}
+                            </button>
+                          </form>
+                        ) : (
+                          <p className="text-xs text-zinc-500 font-medium">
+                            Please select an affiliate user from the header dropdown to ingest new sales.
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -1078,55 +1148,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* --- TAB 5: SYSTEM AUDIT LOGS --- */}
-                {activeTab === 'audits' && storedRoleIsAdmin() && (
-                  <div className="bg-[#121214] border border-[#1f1f23] p-6 rounded-xl space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-semibold">Activity Audit logs</h3>
-                        <p className="text-[10px] text-zinc-500 font-medium">Platform-wide events audit trails.</p>
-                      </div>
-                      <button
-                        onClick={() => exportCSV(audits, "audit_trail")}
-                        className="bg-zinc-900 hover:bg-zinc-800 border border-[#1f1f23] hover:border-zinc-700 text-xs font-semibold py-1.5 px-3 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        CSV
-                      </button>
-                    </div>
-
-                    <div className="overflow-x-auto border border-[#1f1f23] rounded-lg">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="border-b border-[#1f1f23] text-zinc-500 bg-[#161619] font-medium">
-                            <th className="p-4">Timestamp</th>
-                            <th className="p-4">Action</th>
-                            <th className="p-4">Table</th>
-                            <th className="p-4">Target ID</th>
-                            <th className="p-4">Details</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#1f1f23] font-mono">
-                          {audits.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="p-8 text-center text-zinc-500 font-medium font-sans">No audit events logged.</td>
-                            </tr>
-                          ) : (
-                            audits.map((log) => (
-                              <tr key={log.id} className="hover:bg-[#161619]/40 transition-colors">
-                                <td className="p-4 text-zinc-500 text-[10px]">{new Date(log.created_at).toLocaleString()}</td>
-                                <td className="p-4 text-zinc-300 font-sans font-bold">{log.action}</td>
-                                <td className="p-4 text-zinc-400 capitalize font-sans">{log.target_table || 'system'}</td>
-                                <td className="p-4 text-zinc-500">{log.target_id ? log.target_id.slice(0, 8) + '...' : '—'}</td>
-                                <td className="p-4 text-zinc-400 max-w-sm truncate font-sans">{JSON.stringify(log.changes || '')}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
               </motion.div>
             </AnimatePresence>
           )}
