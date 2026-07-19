@@ -79,15 +79,15 @@ erDiagram
 
     LEDGER_TRANSACTIONS {
         UUID id PK
-        UUID transaction_group_id INDEX "groups double-entry transactions"
-        UUID user_id FK, INDEX
+        UUID transaction_group_id "indexed - groups double-entry transactions"
+        UUID user_id FK "indexed"
         DECIMAL debit "positive deduction if non-zero"
         DECIMAL credit "positive gain if non-zero"
         VARCHAR balance_type "WITHDRAWABLE"
-        VARCHAR transaction_type "SALE_APPROVED | SALE_REJECTED | ADVANCE_PAYOUT | WITHDRAWAL_INITIATED | WITHDRAWAL_FAILED | WITHDRAWAL_COMPLETED"
+        VARCHAR transaction_type "SALE_APPROVED | SALE_REJECTED | ADVANCE_PAYOUT | WITHDRAWAL"
         VARCHAR reference_type "SALE | ADVANCE_PAYOUT | WITHDRAWAL"
-        UUID reference_id INDEX
-        TIMESTAMP created_at INDEX
+        UUID reference_id "indexed"
+        TIMESTAMP created_at "indexed"
     }
 
     BALANCES {
