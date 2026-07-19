@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Test artifacts
+.pytest_cache/
+tests/
+.coverage
+htmlcov/
+
+# Local environment & secrets
+.env
+.venv
+venv/
+env/
+
+# Local SQLite databases (Postgres is used in Docker)
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-journal
+
+# Git
+.git/
+.gitignore
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.log

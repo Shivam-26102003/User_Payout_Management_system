@@ -91,11 +91,37 @@ For full schema definitions, index designs, and SQL script examples, review [db_
 
 ## 🛠 Running the System Locally
 
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
 ### 1. Using Docker Compose (Recommended)
 Launch the entire stack (PostgreSQL, Redis, Backend, Frontend) with a single command:
+
+**First run** (builds images from source):
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
+
+**Subsequent runs** (uses cached images, faster):
+```bash
+docker compose up
+```
+
+**Run in detached/background mode:**
+```bash
+docker compose up -d --build
+```
+
+**Stop all containers:**
+```bash
+docker compose down
+```
+
+**Stop and remove all data volumes (full reset):**
+```bash
+docker compose down -v
+```
+
 On startup, the backend automatically runs the `seed.py` script to create all schema tables and populate them with default credentials:
 - **Frontend Dashboard**: `http://localhost:3000`
 - **FastAPI API**: `http://localhost:8000`

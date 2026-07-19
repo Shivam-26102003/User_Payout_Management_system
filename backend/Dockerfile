@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 WORKDIR /workspace
 
@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8000
 
 # Run schema migrations and seeds before starting the FastAPI app
-CMD python seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000
+CMD ["sh", "-c", "python seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
