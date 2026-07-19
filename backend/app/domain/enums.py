@@ -1,0 +1,42 @@
+from enum import Enum
+
+class UserRole(str, Enum):
+    ADMIN = "ADMIN"
+    USER = "USER"
+    VIEWER = "VIEWER"
+
+class UserStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    BLOCKED = "BLOCKED"
+
+class SaleStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+class AdvanceStatus(str, Enum):
+    PENDING = "PENDING"
+    ELIGIBLE = "ELIGIBLE"
+    PAID = "PAID"
+    SKIPPED = "SKIPPED"
+
+class WithdrawalStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+class LedgerTransactionType(str, Enum):
+    SALE_APPROVED = "SALE_APPROVED"
+    SALE_REJECTED = "SALE_REJECTED"
+    ADVANCE_PAYOUT = "ADVANCE_PAYOUT"
+    WITHDRAWAL_INITIATED = "WITHDRAWAL_INITIATED"
+    WITHDRAWAL_FAILED = "WITHDRAWAL_FAILED"
+    WITHDRAWAL_COMPLETED = "WITHDRAWAL_COMPLETED"
+
+class LedgerBalanceType(str, Enum):
+    WITHDRAWABLE = "WITHDRAWABLE"
+    RESERVE_ADVANCE = "RESERVE_ADVANCE"
+    RESERVE_SYSTEM = "RESERVE_SYSTEM"
