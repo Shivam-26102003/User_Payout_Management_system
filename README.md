@@ -14,7 +14,7 @@ This repository implements the low-level design and business logic requirements 
 
 Here is a video demonstration of the working system showing the user interface and functionality:
 
-<video src="https://github.com/Shivam-26102003/User_Payout_Management_system/raw/main/docs/Demo_Video.mp4" autoplay loop muted playsinline width="100%"></video>
+<video src="docs/Demo_Video.mp4" autoplay loop muted playsinline width="100%"></video>
 
 ---
 
