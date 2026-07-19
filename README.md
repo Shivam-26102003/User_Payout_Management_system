@@ -10,6 +10,14 @@ This repository implements the low-level design and business logic requirements 
 
 ---
 
+## 🎥 Demo Video of the Assignment
+
+Here is a video demonstration of the working system showing the user interface and functionality:
+
+https://github.com/Shivam-26102003/User_Payout_Management_system/blob/main/docs/Demo_Video.mp4
+
+---
+
 ## 🚀 System Architecture
 
 The application is structured as a **Modular Monolith** applying **Clean Architecture** patterns:
