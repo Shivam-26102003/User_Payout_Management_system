@@ -10,11 +10,17 @@ This repository implements the low-level design and business logic requirements 
 
 ---
 
-## 🎥 Demo Video of the Assignment
+## 🎥 Demo of the Assignment
 
 Here is a video demonstration of the working system showing the user interface and functionality:
 
-<video src="docs/Demo_Video.mp4" autoplay loop muted playsinline width="100%"></video>
+<p align="center">
+  <img src="docs/demo.gif" width="100%">
+</p>
+
+<p align="center">
+  <a href="docs/Demo_Video.mp4">🎬 Watch Full HD Demo</a>
+</p>
 
 ---
 
